@@ -12,7 +12,7 @@ import fitz  # PyMuPDF
 PROJECT_ROOT = Path(__file__).parent.parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 TEMPLATE_DIR = PROJECT_ROOT / "templates"
-FONT_PATH = "C:/Windows/Fonts/malgun.ttf"
+FONT_PATH = str(PROJECT_ROOT / "assets" / "fonts" / "malgun.ttf")
 
 # ── 배경색 (원본 PDF 살색 배경) ─────────────────────────────
 BG_COLOR = (0.984, 0.961, 0.906)  # RGB(251, 245, 231)

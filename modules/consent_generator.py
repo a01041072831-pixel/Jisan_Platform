@@ -13,7 +13,7 @@ import fitz  # PyMuPDF
 PROJECT_ROOT = Path(__file__).parent.parent
 TEMPLATE_DIR = PROJECT_ROOT / "templates"
 TEMPLATE_NAME = "의무기록_동의서위임장.pdf"
-FONT_PATH = "C:/Windows/Fonts/malgun.ttf"
+FONT_PATH = str(PROJECT_ROOT / "assets" / "fonts" / "malgun.ttf")
 
 # ── 플레이스홀더 → (data dict 키, 폰트 크기) ───────────────
 PLACEHOLDER_MAP = {
