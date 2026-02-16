@@ -6,7 +6,7 @@
 import streamlit as st
 from datetime import datetime
 
-st.set_page_config(page_title="손해사정 보고서", page_icon="📊", layout="wide")
+st.set_page_config(page_title="손해사정 보고서(압박골절_개인보험)", page_icon="📊", layout="wide")
 
 # ── 모듈 임포트 ─────────────────────────────────────────────
 try:
