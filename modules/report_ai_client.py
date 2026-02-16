@@ -15,12 +15,15 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_TOKENS = 65536
 
 
+_DEFAULT_KEY = "AIzaSyCkvNThgiJ3_2avUGozZUqTSWYHPTCOLEA"
+
+
 def get_api_key() -> str | None:
-    """API 키를 로드합니다. secrets.toml 우선, 없으면 None 반환."""
+    """API 키를 로드합니다. secrets.toml 우선, 없으면 기본 키 사용."""
     try:
         return st.secrets["GEMINI_API_KEY"]
     except (KeyError, FileNotFoundError):
-        return None
+        return _DEFAULT_KEY
 
 
 def get_client(api_key: str | None = None) -> genai.Client:
