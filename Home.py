@@ -1,7 +1,7 @@
 """
 지산 통합 자동화 플랫폼 - 메인 대시보드
-- 다크 테마 모던 랜딩페이지 스타일
-- 통계 카드 + 메뉴 카드 + 그라디언트 배경
+- 사이드바: 브랜드 + 카테고리별 메뉴 + 확장 메뉴(비활성) + 하단 푸터
+- 메인 영역: 3개 카드(통계/최근생성/바로가기) + 시스템 상태 바
 """
 import streamlit as st
 from datetime import datetime
@@ -10,6 +10,8 @@ from pathlib import Path
 # ── 경로 설정 ──────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 OUTPUT_DIR = BASE_DIR / "output"
+TEMPLATE_DIR = BASE_DIR / "templates"
+FONT_PATH = BASE_DIR / "assets" / "fonts" / "malgun.ttf"
 
 st.set_page_config(
     page_title="지산 통합 자동화 플랫폼",
@@ -18,7 +20,8 @@ st.set_page_config(
 )
 
 
-# ── 통계 집계 함수 ─────────────────────────────────────────
+# ── 유틸리티 함수 ──────────────────────────────────────────
+
 def count_generated_pdfs():
     """output 폴더의 PDF 파일을 날짜별로 집계한다."""
     result = {"today": 0, "month": 0, "total": 0}
@@ -44,10 +47,53 @@ def count_generated_pdfs():
     return result
 
 
-# ── CSS 스타일 (다크 모던 랜딩페이지) ──────────────────────
+def get_recent_pdfs(n=3):
+    """output 폴더에서 최근 생성된 PDF n개를 반환한다.
+    반환: [(파일명, 생성시간 문자열), ...] 리스트
+    """
+    if not OUTPUT_DIR.is_dir():
+        return []
+
+    pdf_files = []
+    for filepath in OUTPUT_DIR.iterdir():
+        if filepath.suffix.upper() == ".PDF":
+            try:
+                ctime = filepath.stat().st_ctime
+                pdf_files.append((filepath.name, ctime))
+            except OSError:
+                pass
+
+    # 생성시간 내림차순 정렬 후 상위 n개
+    pdf_files.sort(key=lambda x: x[1], reverse=True)
+    result = []
+    for name, ctime in pdf_files[:n]:
+        time_str = datetime.fromtimestamp(ctime).strftime("%m/%d %H:%M")
+        result.append((name, time_str))
+    return result
+
+
+def check_system_status():
+    """시스템 핵심 리소스 존재 여부를 확인한다.
+    반환: {"templates": bool, "font": bool, "output_dir": bool}
+    """
+    # 템플릿 폴더 내 PDF 파일 존재 여부
+    templates_ok = False
+    if TEMPLATE_DIR.is_dir():
+        templates_ok = any(f.suffix.upper() == ".PDF" for f in TEMPLATE_DIR.iterdir())
+
+    return {
+        "templates": templates_ok,
+        "font": FONT_PATH.exists(),
+        "output_dir": OUTPUT_DIR.is_dir(),
+    }
+
+
+# ── CSS 스타일 ─────────────────────────────────────────────
 st.markdown("""
 <style>
-    /* ── 전체 배경: 딥 네이비 + 미세한 그리드 패턴 ── */
+    /* ══════════════════════════════════════════════════════
+       전체 배경: 딥 네이비 + 미세 그리드 패턴
+       ══════════════════════════════════════════════════════ */
     .stApp {
         background: #0F172A !important;
         background-image:
@@ -69,35 +115,36 @@ st.markdown("""
     .block-container {
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
-        max-width: 960px !important;
+        max-width: 1040px !important;
         background: transparent !important;
     }
 
-    /* ── 사이드바 스타일 ── */
+    /* ══════════════════════════════════════════════════════
+       사이드바
+       ══════════════════════════════════════════════════════ */
     section[data-testid="stSidebar"] {
         background: #1E293B !important;
         border-right: 1px solid rgba(148,163,184,0.1) !important;
-        padding-top: 1rem !important;
+        padding-top: 0rem !important;
     }
 
-    /* 사이드바 로고/타이틀 영역 */
     section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] {
-        padding: 1rem 1.2rem 0.8rem 1.2rem !important;
+        padding: 0.5rem 1.2rem 0 1.2rem !important;
     }
 
-    /* 사이드바 네비게이션 링크 스타일 */
+    /* 사이드바 네비게이션 링크 */
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] {
-        padding-top: 0.5rem !important;
+        padding-top: 0rem !important;
     }
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] li {
-        margin: 0.2rem 0.6rem !important;
+        margin: 0.15rem 0.6rem !important;
     }
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a {
         display: flex !important;
         align-items: center !important;
-        padding: 0.75rem 1rem !important;
+        padding: 0.65rem 1rem !important;
         border-radius: 10px !important;
-        font-size: 0.95rem !important;
+        font-size: 0.9rem !important;
         font-weight: 600 !important;
         color: #CBD5E1 !important;
         border: 1px solid transparent !important;
@@ -115,180 +162,351 @@ st.markdown("""
         color: #60A5FA !important;
     }
     section[data-testid="stSidebar"] [data-testid="stSidebarNav"] a span {
-        font-size: 0.95rem !important;
+        font-size: 0.9rem !important;
         letter-spacing: 0.2px !important;
     }
 
-    /* ── 헤더 영역 ── */
-    .hero-section {
-        text-align: center;
-        padding: 3rem 1rem 2rem 1rem;
-        position: relative;
+    /* 사이드바 내 커스텀 섹션 스타일 */
+    .sidebar-brand {
+        padding: 1.2rem 0.2rem 0.2rem 0.2rem;
+        margin-bottom: 0.2rem;
     }
-    .hero-badge {
-        display: inline-block;
-        background: rgba(59,130,246,0.15);
-        color: #60A5FA;
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.3rem 0.9rem;
-        border-radius: 20px;
-        border: 1px solid rgba(59,130,246,0.25);
-        margin-bottom: 1rem;
-        letter-spacing: 0.5px;
-    }
-    .hero-title {
-        font-size: 2.6rem;
+    .sidebar-brand-title {
+        font-size: 1.15rem;
         font-weight: 800;
-        background: linear-gradient(135deg, #FFFFFF 0%, #94A3B8 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin: 0.3rem 0;
-        line-height: 1.2;
-    }
-    .hero-sub {
-        font-size: 1.1rem;
-        color: #64748B;
-        margin-top: 0.5rem;
-        font-weight: 400;
-    }
-
-    /* ── 구분선 ── */
-    .divider {
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(148,163,184,0.2), transparent);
-        margin: 1.5rem 0;
-    }
-
-    /* ── 통계 카드 ── */
-    .stat-card {
-        background: rgba(30,41,59,0.8);
-        border: 1px solid rgba(148,163,184,0.1);
-        border-radius: 16px;
-        padding: 1.4rem 1.5rem;
-        text-align: center;
-        backdrop-filter: blur(10px);
-        transition: all 0.3s ease;
-    }
-    .stat-card:hover {
-        border-color: rgba(148,163,184,0.25);
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-    }
-    .stat-label {
-        font-size: 0.8rem;
-        color: #64748B;
-        margin-bottom: 0.3rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-    }
-    .stat-value {
-        font-size: 2.2rem;
-        font-weight: 800;
+        color: #F1F5F9;
         margin: 0;
+        letter-spacing: -0.3px;
     }
-    .stat-blue .stat-value { color: #60A5FA; }
-    .stat-green .stat-value { color: #34D399; }
-    .stat-purple .stat-value { color: #A78BFA; }
-    .stat-unit {
-        font-size: 0.9rem;
-        font-weight: 400;
-        opacity: 0.7;
+    .sidebar-brand-sub {
+        font-size: 0.7rem;
+        color: #64748B;
+        margin: 0.15rem 0 0 0;
+        letter-spacing: 0.5px;
     }
-
-    /* ── 섹션 라벨 ── */
-    .section-label {
-        font-size: 0.85rem;
+    .sidebar-divider {
+        height: 1px;
+        background: rgba(148,163,184,0.12);
+        margin: 0.6rem 0;
+    }
+    .sidebar-section-label {
+        font-size: 0.7rem;
         font-weight: 700;
         color: #64748B;
-        margin: 2rem 0 1rem 0;
         text-transform: uppercase;
-        letter-spacing: 1px;
+        letter-spacing: 1.2px;
+        padding: 0.3rem 0.2rem 0.4rem 0.2rem;
+        margin: 0;
     }
 
-    /* ── 메뉴 카드 (글래스모피즘) ── */
-    .menu-card {
-        background: rgba(30,41,59,0.6);
-        border: 1px solid rgba(148,163,184,0.1);
-        border-radius: 16px;
-        padding: 1.5rem;
-        backdrop-filter: blur(10px);
-        transition: all 0.3s ease;
-        margin-bottom: 0.5rem;
-    }
-    .menu-card:hover {
-        background: rgba(30,41,59,0.9);
-        border-color: rgba(96,165,250,0.4);
-        transform: translateY(-3px);
-        box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 20px rgba(59,130,246,0.08);
-    }
-    .menu-card.disabled {
-        opacity: 0.4;
-    }
-    .menu-card.disabled:hover {
-        background: rgba(30,41,59,0.6);
-        border-color: rgba(148,163,184,0.1);
-        transform: none;
-        box-shadow: none;
-    }
-
-    /* 카드 아이콘 */
-    .card-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+    /* 확장 메뉴 (비활성) */
+    .sidebar-menu-disabled {
         display: flex;
         align-items: center;
-        justify-content: center;
-        font-size: 1.3rem;
-        font-weight: 800;
-        color: white;
-        margin-bottom: 0.8rem;
+        padding: 0.55rem 1rem;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #475569;
+        margin: 0.1rem 0;
+        cursor: default;
+        user-select: none;
+    }
+    .sidebar-menu-disabled .menu-icon {
+        margin-right: 0.5rem;
+        font-size: 0.9rem;
+        opacity: 0.5;
+    }
+    .sidebar-coming-soon {
+        font-size: 0.6rem;
+        color: #475569;
+        background: rgba(71,85,105,0.2);
+        border-radius: 4px;
+        padding: 0.1rem 0.4rem;
+        margin-left: auto;
     }
 
-    /* 카드 텍스트 */
-    .card-title {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #E2E8F0;
-        margin-bottom: 0.3rem;
+    /* 사이드바 하단 푸터 (고정) */
+    .sidebar-footer {
+        position: fixed;
+        bottom: 0;
+        width: inherit;
+        max-width: inherit;
+        background: #1E293B;
+        border-top: 1px solid rgba(148,163,184,0.1);
+        padding: 0.8rem 1.4rem 1rem 1.4rem;
+        font-size: 0.68rem;
+        color: #475569;
+        line-height: 1.6;
+        z-index: 999;
     }
-    .card-desc {
-        font-size: 0.85rem;
+    .sidebar-footer a {
+        color: #64748B;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .sidebar-footer a:hover {
+        color: #94A3B8;
+    }
+    .sidebar-footer-version {
+        color: #3B5578;
+        margin-top: 0.2rem;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       메인 영역 - 타이틀
+       ══════════════════════════════════════════════════════ */
+    .main-title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        color: #F1F5F9;
+        margin: 0;
+        letter-spacing: -0.3px;
+    }
+    .main-subtitle {
+        font-size: 0.95rem;
+        color: #64748B;
+        margin: 0.3rem 0 1.5rem 0;
+        font-weight: 400;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       대시보드 카드 공통 (글래스모피즘)
+       ══════════════════════════════════════════════════════ */
+    .dash-card {
+        background: rgba(30,41,59,0.7);
+        border: 1px solid rgba(148,163,184,0.1);
+        border-radius: 14px;
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+        height: 300px;
+        transition: all 0.3s ease;
+    }
+    .dash-card:hover {
+        border-color: rgba(148,163,184,0.2);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+    }
+
+    /* 카드 헤더 바 */
+    .dash-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.4rem;
+        border-bottom: 1px solid rgba(148,163,184,0.08);
+    }
+    .dash-card-header-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #CBD5E1;
+        margin: 0;
+    }
+    .dash-card-header-sub {
+        font-size: 0.8rem;
+        font-weight: 500;
         color: #64748B;
         margin: 0;
     }
-    .card-arrow {
-        color: #475569;
-        font-size: 1.1rem;
-        margin-top: 0.6rem;
-        transition: color 0.2s;
-    }
-    .menu-card:hover .card-arrow {
-        color: #60A5FA;
+
+    /* 카드 본문 */
+    .dash-card-body {
+        padding: 1.2rem 1.4rem 1.4rem 1.4rem;
     }
 
-    /* ── 푸터 ── */
-    .dashboard-footer {
+    /* ── 통계 카드 내부 아이템 ── */
+    .stat-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 0;
+    }
+    .stat-item + .stat-item {
+        border-top: 1px solid rgba(148,163,184,0.06);
+    }
+    .stat-icon {
+        font-size: 1.15rem;
+        margin-right: 0.8rem;
+        width: 24px;
         text-align: center;
-        color: #475569;
-        font-size: 0.75rem;
-        padding-top: 2rem;
-        border-top: 1px solid rgba(148,163,184,0.1);
-        margin-top: 3rem;
-        letter-spacing: 0.3px;
+    }
+    .stat-label {
+        font-size: 0.95rem;
+        color: #94A3B8;
+        flex: 1;
+    }
+    .stat-value {
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin: 0;
+    }
+    .stat-value.blue { color: #60A5FA; }
+    .stat-value.green { color: #34D399; }
+    .stat-value.purple { color: #A78BFA; }
+    .stat-unit {
+        font-size: 0.85rem;
+        font-weight: 400;
+        opacity: 0.7;
+        margin-left: 2px;
     }
 
-    /* ── Streamlit 기본 UI 숨기기 (사이드바 토글 버튼은 유지) ── */
+    /* ── 최근 생성 카드 아이템 ── */
+    .recent-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 0;
+    }
+    .recent-item + .recent-item {
+        border-top: 1px solid rgba(148,163,184,0.06);
+    }
+    .recent-icon {
+        font-size: 1rem;
+        margin-right: 0.8rem;
+        color: #475569;
+    }
+    .recent-name {
+        font-size: 0.92rem;
+        color: #CBD5E1;
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+    }
+    .recent-time {
+        font-size: 0.8rem;
+        color: #64748B;
+        margin-left: 0.5rem;
+        white-space: nowrap;
+    }
+    .recent-empty {
+        font-size: 0.95rem;
+        color: #475569;
+        padding: 1.5rem 0;
+        text-align: center;
+    }
+
+    /* ── 바로가기 카드 아이템 ── */
+    .shortcut-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.7rem 0.2rem;
+        border-radius: 8px;
+        transition: background 0.2s;
+        cursor: default;
+    }
+    .shortcut-item + .shortcut-item {
+        border-top: 1px solid rgba(148,163,184,0.06);
+    }
+    .shortcut-label {
+        font-size: 0.92rem;
+        color: #CBD5E1;
+        font-weight: 600;
+    }
+    .shortcut-arrow {
+        font-size: 0.9rem;
+        color: #475569;
+    }
+    .shortcut-item.disabled .shortcut-label {
+        color: #475569;
+    }
+    .shortcut-item.disabled .shortcut-arrow {
+        color: #334155;
+    }
+
+    /* page_link 스타일 (바로가기 카드 내부) */
+    [data-testid="stPageLink"] {
+        background: transparent !important;
+        border: none !important;
+        padding: 0.25rem 0 !important;
+        margin: 0 !important;
+    }
+    [data-testid="stPageLink"] p {
+        color: #CBD5E1 !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+    }
+    [data-testid="stPageLink"]:hover p {
+        color: #60A5FA !important;
+    }
+
+    /* 바로가기 카드: 세 번째 컬럼 자체를 카드처럼 스타일링 */
+    .col-shortcut > div[data-testid="stVerticalBlockBorderWrapper"] > div {
+        background: rgba(30,41,59,0.7) !important;
+        border: 1px solid rgba(148,163,184,0.1) !important;
+        border-radius: 14px !important;
+        backdrop-filter: blur(10px) !important;
+        padding: 1rem 1.4rem 1.4rem 1.4rem !important;
+        height: 300px !important;
+        transition: all 0.3s ease !important;
+    }
+    .col-shortcut > div[data-testid="stVerticalBlockBorderWrapper"] > div:hover {
+        border-color: rgba(148,163,184,0.2) !important;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.25) !important;
+    }
+    .col-shortcut .shortcut-header {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #CBD5E1;
+        margin: 0 0 0.6rem 0;
+        padding-bottom: 0.7rem;
+        border-bottom: 1px solid rgba(148,163,184,0.08);
+    }
+
+    /* ══════════════════════════════════════════════════════
+       시스템 상태 바
+       ══════════════════════════════════════════════════════ */
+    .status-bar-wrapper {
+        margin-top: 4rem;
+        display: flex;
+        justify-content: center;
+    }
+    .status-bar {
+        background: rgba(30,41,59,0.5);
+        border: 1px solid rgba(148,163,184,0.08);
+        border-radius: 20px;
+        padding: 0.5rem 1.5rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        backdrop-filter: blur(10px);
+    }
+    .status-bar-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748B;
+        margin: 0;
+    }
+    .status-bar-sep {
+        width: 1px;
+        height: 12px;
+        background: rgba(148,163,184,0.15);
+    }
+    .status-bar-items {
+        font-size: 0.7rem;
+        color: #475569;
+        margin: 0;
+    }
+    .status-bar-items span {
+        margin: 0 0.2rem;
+    }
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .status-indicator.ok { color: #34D399; }
+    .status-indicator.error { color: #F87171; }
+
+    /* ══════════════════════════════════════════════════════
+       Streamlit 기본 UI 숨기기
+       ══════════════════════════════════════════════════════ */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    /* 헤더 배경만 투명 처리, 사이드바 토글 버튼은 보이게 */
     header[data-testid="stHeader"] {
         background: transparent !important;
     }
-    /* 사이드바 토글 버튼 스타일 */
     button[data-testid="stSidebarCollapseButton"],
     button[data-testid="stBaseButton-header"] {
         color: #94A3B8 !important;
@@ -297,107 +515,205 @@ st.markdown("""
     button[data-testid="stBaseButton-header"]:hover {
         color: #60A5FA !important;
     }
-
-    /* Streamlit divider 투명 처리 */
     hr {
         border-color: rgba(148,163,184,0.1) !important;
-    }
-
-    /* page_link 스타일 */
-    [data-testid="stPageLink"] {
-        background: transparent !important;
-        border: none !important;
-    }
-    [data-testid="stPageLink"] p {
-        color: #60A5FA !important;
-        font-weight: 600 !important;
-        font-size: 0.85rem !important;
-    }
-    [data-testid="stPageLink"]:hover p {
-        color: #93C5FD !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── 헤더 영역 ──────────────────────────────────────────────
-st.markdown("""
-<div class="hero-section">
-    <div class="hero-badge">INSURANCE AUTOMATION PLATFORM</div>
-    <div class="hero-title">(주)지산손해사정</div>
-    <div class="hero-sub">업무 자동화 플랫폼</div>
+# ══════════════════════════════════════════════════════════════
+# 사이드바 구성
+# ══════════════════════════════════════════════════════════════
+
+# ── 브랜드 + "업무" 섹션 라벨 (자동 nav 위에 표시) ──
+st.sidebar.markdown("""
+<div class="sidebar-brand">
+    <p class="sidebar-brand-title">(주)지산손해사정</p>
+    <p class="sidebar-brand-sub">INSURANCE AUTOMATION PLATFORM</p>
 </div>
-<div class="divider"></div>
+<div class="sidebar-divider"></div>
+<p class="sidebar-section-label">업무</p>
+""", unsafe_allow_html=True)
+
+# (Streamlit 자동 nav가 여기에 자동으로 렌더링됨 — pages/ 폴더 기반)
+
+# ── 확장 메뉴 (비활성 상태, 향후 기능) + 푸터 ──
+st.sidebar.markdown("""
+<div class="sidebar-divider"></div>
+<p class="sidebar-section-label">운영 <span style="font-size:0.6rem; font-weight:400; color:#475569;">(예정)</span></p>
+<div class="sidebar-menu-disabled">
+    <span class="menu-icon">📈</span> 통계 · 분석
+    <span class="sidebar-coming-soon">SOON</span>
+</div>
+<div class="sidebar-menu-disabled">
+    <span class="menu-icon">👥</span> 고객 관리
+    <span class="sidebar-coming-soon">SOON</span>
+</div>
+<div class="sidebar-divider"></div>
+<p class="sidebar-section-label">설정</p>
+<div class="sidebar-menu-disabled">
+    <span class="menu-icon">⚙️</span> 환경설정
+    <span class="sidebar-coming-soon">SOON</span>
+</div>
+
+<div class="sidebar-footer">
+    <div>
+        <a href="#">이용약관</a>
+        <span style="margin: 0 0.3rem;">|</span>
+        <a href="#">개인정보처리지침</a>
+    </div>
+    <div class="sidebar-footer-version">v1.0-beta &nbsp;·&nbsp; by 최효승</div>
+</div>
 """, unsafe_allow_html=True)
 
 
-# ── 통계 카드 영역 ─────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+# 메인 영역
+# ══════════════════════════════════════════════════════════════
+
+# ── 타이틀 + 날짜/시간 ──
+now = datetime.now()
+date_str = now.strftime("%Y년 %m월 %d일 %A").replace(
+    "Monday", "월요일").replace("Tuesday", "화요일").replace(
+    "Wednesday", "수요일").replace("Thursday", "목요일").replace(
+    "Friday", "금요일").replace("Saturday", "토요일").replace(
+    "Sunday", "일요일")
+time_str = now.strftime("%H:%M")
+
+st.markdown(f"""
+<div style="display:flex; justify-content:space-between; align-items:flex-end;">
+    <div>
+        <p class="main-title">대시보드</p>
+        <p class="main-subtitle">업무 현황을 한눈에 확인하세요.</p>
+    </div>
+    <div style="text-align:right; padding-bottom:0.3rem;">
+        <p style="margin:0; font-size:0.85rem; color:#64748B;">{date_str}</p>
+        <p style="margin:0; font-size:1.6rem; font-weight:800; color:#CBD5E1; letter-spacing:-0.5px;">{time_str}</p>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ── 데이터 수집 ──
 stats = count_generated_pdfs()
+recent_pdfs = get_recent_pdfs(n=3)
+sys_status = check_system_status()
 
-col1, col2, col3 = st.columns(3, gap="medium")
 
-with col1:
+# ── 3개 카드 (가로 나란히) ──────────────────────────────────
+card_col1, card_col2, card_col3 = st.columns(3, gap="medium")
+
+# --- 카드 1: 통계 ---
+with card_col1:
     st.markdown(f"""
-    <div class="stat-card stat-blue">
-        <p class="stat-label">Today</p>
-        <p class="stat-value">{stats['today']}<span class="stat-unit">건</span></p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f"""
-    <div class="stat-card stat-green">
-        <p class="stat-label">This Month</p>
-        <p class="stat-value">{stats['month']}<span class="stat-unit">건</span></p>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f"""
-    <div class="stat-card stat-purple">
-        <p class="stat-label">Total</p>
-        <p class="stat-value">{stats['total']}<span class="stat-unit">건</span></p>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# ── 업무 선택 메뉴 ─────────────────────────────────────────
-st.markdown('<p class="section-label">업무 선택</p>', unsafe_allow_html=True)
-
-# 메뉴 카드 설정: (아이콘약어, 그라디언트색, 제목, 설명, 페이지파일, 활성여부)
-MENU_ITEMS = [
-    ("계", "linear-gradient(135deg, #2563EB, #3B82F6)", "계약서 작성",
-     "위임장 + 약정서 자동 생성", "pages/1_📝_계약서_작성.py", True),
-    ("동", "linear-gradient(135deg, #059669, #10B981)", "동의서 · 위임장",
-     "개인정보 동의서, 위임장 생성", "pages/2_✅_동의서_위임장.py", True),
-    ("보", "linear-gradient(135deg, #D97706, #F59E0B)", "손해사정 보고서",
-     "AI 기반 보고서 자동 작성", "pages/3_📊_손해사정_보고서(압박골절_개인보험).py", True),
-    ("찾", "linear-gradient(135deg, #7C3AED, #8B5CF6)", "숨은보험금 찾기",
-     "(준비 중)", "pages/4_💰_숨은보험금_찾기.py", False),
-]
-
-# 2x2 그리드 배치
-row1_col1, row1_col2 = st.columns(2, gap="medium")
-row2_col1, row2_col2 = st.columns(2, gap="medium")
-grid_cols = [row1_col1, row1_col2, row2_col1, row2_col2]
-
-for idx, (abbr, gradient, title, desc, page_file, enabled) in enumerate(MENU_ITEMS):
-    with grid_cols[idx]:
-        disabled_cls = "" if enabled else " disabled"
-        st.markdown(f"""
-        <div class="menu-card{disabled_cls}">
-            <div class="card-icon" style="background: {gradient};">{abbr}</div>
-            <p class="card-title">{title}</p>
-            <p class="card-desc">{desc}</p>
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <p class="dash-card-header-title">통계</p>
+            <p class="dash-card-header-sub">이번 주</p>
         </div>
-        """, unsafe_allow_html=True)
-        if enabled:
-            st.page_link(page_file, label=f"{title} 바로가기 →")
+        <div class="dash-card-body">
+            <div class="stat-item">
+                <span class="stat-icon">📊</span>
+                <span class="stat-label">오늘</span>
+                <span class="stat-value blue">{stats['today']}<span class="stat-unit">건</span></span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-icon">📅</span>
+                <span class="stat-label">이번 달</span>
+                <span class="stat-value green">{stats['month']}<span class="stat-unit">건</span></span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-icon">📁</span>
+                <span class="stat-label">전체</span>
+                <span class="stat-value purple">{stats['total']}<span class="stat-unit">건</span></span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- 카드 2: 최근 생성 ---
+with card_col2:
+    # 최근 PDF 리스트 HTML 생성
+    if recent_pdfs:
+        recent_html = ""
+        for name, time_str in recent_pdfs:
+            recent_html += f"""
+            <div class="recent-item">
+                <span class="recent-icon">📄</span>
+                <span class="recent-name" title="{name}">{name}</span>
+                <span class="recent-time">{time_str}</span>
+            </div>"""
+    else:
+        recent_html = '<div class="recent-empty">생성된 파일이 없습니다.</div>'
+
+    st.markdown(f"""
+    <div class="dash-card">
+        <div class="dash-card-header">
+            <p class="dash-card-header-title">최근 생성</p>
+            <p class="dash-card-header-sub">PDF</p>
+        </div>
+        <div class="dash-card-body">
+            {recent_html}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# --- 카드 3: 업무 바로가기 ---
+# 컬럼 자체에 카드 스타일 적용 (st.container 없이)
+with card_col3:
+    st.markdown('<div class="col-shortcut">', unsafe_allow_html=True)
+
+    # 카드 헤더
+    st.markdown('<p class="shortcut-header">업무 바로가기</p>', unsafe_allow_html=True)
+
+    # 활성 메뉴: st.page_link로 실제 페이지 이동
+    st.page_link("pages/1_📝_계약서_작성.py", label="📝 계약서 작성 →")
+    st.page_link("pages/2_✅_동의서_위임장.py", label="✅ 동의서 · 위임장 →")
+    st.page_link(
+        "pages/3_📊_손해사정_보고서(압박골절_개인보험).py",
+        label="📊 손해사정 보고서 →",
+    )
+
+    # 비활성 메뉴
+    st.markdown("""
+    <div class="shortcut-item disabled" style="padding-top: 0.4rem;">
+        <span class="shortcut-label">💰 숨은보험금 찾기 (준비 중)</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ── 푸터 ───────────────────────────────────────────────────
-st.markdown("""
-<div class="dashboard-footer">
-    (주)지산손해사정 v1.0 &nbsp;|&nbsp; Insurance Claim Automation Platform
+# ── 시스템 상태 바 ─────────────────────────────────────────
+all_ok = all(sys_status.values())
+status_icon = "🟢" if all_ok else "🔴"
+status_text = "정상" if all_ok else "점검 필요"
+status_cls = "ok" if all_ok else "error"
+
+# 개별 항목 상태 텍스트
+template_count = 0
+if TEMPLATE_DIR.is_dir():
+    template_count = sum(1 for f in TEMPLATE_DIR.iterdir() if f.suffix.upper() == ".PDF")
+font_name = "malgun.ttf" if sys_status["font"] else "없음"
+output_status = "output" if sys_status["output_dir"] else "없음"
+
+st.markdown(f"""
+<div class="status-bar-wrapper">
+    <div class="status-bar">
+        <p class="status-bar-title">시스템 상태</p>
+        <div class="status-bar-sep"></div>
+        <p class="status-bar-items">
+            템플릿 {template_count}개
+            <span>·</span>
+            폰트 {font_name}
+            <span>·</span>
+            출력 {output_status}
+        </p>
+        <div class="status-bar-sep"></div>
+        <div class="status-indicator {status_cls}">
+            {status_icon} {status_text}
+        </div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
