@@ -15,7 +15,7 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 DEFAULT_MAX_TOKENS = 65536
 
 
-_DEFAULT_KEY = "AIzaSyCkvNThgiJ3_2avUGozZUqTSWYHPTCOLEA"
+_DEFAULT_KEY = "AIzaSyDGonhHADPmv--smXQk1jaHTJYJDdB3QWo"
 
 
 def get_api_key() -> str | None:
