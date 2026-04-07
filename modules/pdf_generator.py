@@ -103,18 +103,7 @@ def create_contract_pdf(
 
     doc = fitz.open(template_path)
 
-    # Step 1: 모든 Gulim 마커에 대해 redaction annotation 추가
-    for field_key, (page_idx, bbox, _, _) in FIELD_MAP.items():
-        page = doc[page_idx]
-        rect = fitz.Rect(bbox)
-        annot = page.add_redact_annot(rect)
-        annot.set_colors(fill=BG_COLOR)
-
-    # Step 2: redaction 적용 (마커 텍스트 제거)
-    for page in doc:
-        page.apply_redactions()
-
-    # Step 3: 각 페이지에 폰트 등록
+    # 각 페이지에 폰트 등록
     font_name = "malgun"
     for page_idx in range(len(doc)):
         page = doc[page_idx]
